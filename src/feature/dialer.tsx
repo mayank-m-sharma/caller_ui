@@ -19,6 +19,7 @@ import { cn } from '~/lib/utils';
 
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
+import { Link } from 'react-router-dom';
 
 interface Contact {
   id: string;
@@ -304,6 +305,8 @@ function DialerView({
   initiateCall: (isIncoming?: boolean, isOutgoing?: boolean) => void;
 }) {
   return (
+    <>
+    <Link to="/about" className='text-blue-500'>Visit About</Link>
     <div className='flex h-full flex-col justify-between'>
       <div className='relative mb-4'>
         <Input
@@ -372,6 +375,7 @@ function DialerView({
         </Button>
       </div>
     </div>
+    </>
   );
 }
 

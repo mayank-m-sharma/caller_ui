@@ -1,9 +1,18 @@
 import { Dialer } from '~/feature/dialer';
-
+import {createBrowserRouter, RouterProvider} from 'react-router-dom'
+import About from './components/About';
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Dialer/>
+  },
+  {
+    path: "/about",
+    element: <About />
+  }
+])
 export default function App() {
   return (
-    <div>
-      <Dialer />
-    </div>
+    <RouterProvider router={router}></RouterProvider>
   );
 }
