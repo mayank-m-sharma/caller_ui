@@ -1,7 +1,7 @@
 import { Dialer } from '~/feature/dialer';
-import {createBrowserRouter, RouterProvider} from 'react-router-dom'
+import {createMemoryRouter, RouterProvider} from 'react-router-dom'
 import About from './components/About';
-const router = createBrowserRouter([
+const router = createMemoryRouter([
   {
     path: "/",
     element: <Dialer/>
