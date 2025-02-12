@@ -20,6 +20,7 @@ import { cn } from '~/lib/utils';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 interface Contact {
   id: string;
@@ -39,6 +40,7 @@ interface CallHistoryItem {
 interface DialerProps {
   className?: string;
 }
+const AUTH_TOKEN = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjhkMjUwZDIyYTkzODVmYzQ4NDJhYTU2YWJhZjUzZmU5NDcxNmVjNTQiLCJ0eXAiOiJKV1QifQ.eyJ1c2VyX2lkIjoibnAzNE8zZW5KaVJxeUxXTFFNblgiLCJjb21wYW55X2lkIjoiN0l6eUFtMkN0cmhrZ3o5TmxoemgiLCJyb2xlIjoiYWRtaW4iLCJ0eXBlIjoiYWdlbmN5IiwibG9jYXRpb25zIjpbIlZHWm5kdE9GSHJPNE5JRUxCUVlvIiwiNVNLV091U2x3QXpjcm9TNDR2YnEiLCJSMDVWUmVoVlZIbWR5bGN4bjFUdiIsIlB2ZmRkamNPVGZRVlUwc0xxT3owIiwiaHFEMkVwVXdCSmcxbkVCV3I0alQiXSwidmVyc2lvbiI6MiwicGVybWlzc2lvbnMiOnsid29ya2Zsb3dzX2VuYWJsZWQiOnRydWUsIndvcmtmbG93c19yZWFkX29ubHkiOmZhbHNlfSwiaXNzIjoiaHR0cHM6Ly9zZWN1cmV0b2tlbi5nb29nbGUuY29tL2hpZ2hsZXZlbC1iYWNrZW5kIiwiYXVkIjoiaGlnaGxldmVsLWJhY2tlbmQiLCJhdXRoX3RpbWUiOjE3MzkzNzEyNzQsInN1YiI6Im5wMzRPM2VuSmlScXlMV0xRTW5YIiwiaWF0IjoxNzM5MzcxMjc0LCJleHAiOjE3MzkzNzQ4NzQsImZpcmViYXNlIjp7ImlkZW50aXRpZXMiOnt9LCJzaWduX2luX3Byb3ZpZGVyIjoiY3VzdG9tIn19.NiUzUvC1tmmyIDzyEvnu42ehMXTBf5RWJ-Z56dToDNa-axZGRiKEwq13uK6lYfYy5IAviPZux1XjchBC8xUISutanpmoedXYUrfQeQ8CISuNKL9RuYAXrj0XFe8CmIqixbXoa4pOGldYe1bMJ-XgUd7SjNXOcnH2UcQw_GHw-mNene6pV8uSoFeaii_0rdGLV-JhYJ6uBIyGH4mcjT-X6qKz3J5FAWhi66_AKGQ4-WuC_u1i5Vv9ZFPJBH3J2qfAU7IHcNjwNT-uok78Lb2kCTmg-dw29rNF7lc5Xj5KYVJ4wEPq8Og-Wsp02kpHrEpDEYBzsKDCv14JTESfhw-7mw";
 
 export function Dialer({ className }: DialerProps) {
   const [phoneNumber, setPhoneNumber] = React.useState('');
@@ -75,6 +77,38 @@ export function Dialer({ className }: DialerProps) {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
+    const fetchContacts = async () => {
+      try {
+        const response = await axios.get('https://backend.leadconnectorhq.com/contacts/?locationId=hqD2EpUwBJg1nEBWr4jT', {
+          headers: {
+            'accept': 'application/json, text/plain, */*',
+            'accept-language': 'en-GB,en-US;q=0.9,en;q=0.8',
+            'authorization': `Bearer ${AUTH_TOKEN}`,
+            'baggage': 'sentry-environment=production,sentry-release=3a2492877e3f0a3b070f2b387ef2f5e52bae3c48,sentry-public_key=c67431ff70d6440fb529c2705792425f,sentry-trace_id=7701bb584d5e41f9beb76f5ec09b84bd,sentry-sample_rate=0.1,sentry-transaction=smart-list-v2,sentry-sampled=true',
+            'channel': 'APP',
+            'if-none-match': 'W/"3f90-ORFugoW/1wEQ9YYRMs+AB6d0yYs"',
+            'origin': 'https://app.gohighlevel.com',
+            'priority': 'u=1, i',
+            'referer': 'https://app.gohighlevel.com/',
+            'sentry-trace': '7701bb584d5e41f9beb76f5ec09b84bd-a1852bee00916407-1',
+            'source': 'WEB_USER',
+            'token-id': `${AUTH_TOKEN}`,
+            'version': '2021-07-28'
+          }
+        });
+        const contacts = response.data.contacts.filter((contact: any) => contact.phone).map((contact: any) => ({
+            id: contact.id,
+            name: contact.contactName,
+            number: contact.phone,
+          })
+        );
+        _setContacts(contacts);
+      } catch (error) {
+        console.error('Error fetching contacts:', error);
+      }
+    };
+
+    fetchContacts();
     return () => {
       clearInterval(timer);
     };
