@@ -65,6 +65,7 @@ export function Dialer({ className }: DialerProps) {
   const [callHistory, setCallHistory] = React.useState<Array<CallHistoryItem>>(
     [],
   );
+  const [locId, setLocId] = React.useState('');
 
   const fetchLocation = async () => {
     try {
@@ -107,6 +108,7 @@ export function Dialer({ className }: DialerProps) {
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
+    setLocId(localStorage.getItem('locId') || 'LOC_ID_NOT_FOUND');
     if (currentView === 'incall' && isCallConnected) {
       timer = setInterval(() => {
         setCallDuration((prev) => prev + 1);
@@ -197,6 +199,8 @@ export function Dialer({ className }: DialerProps) {
       switch (currentView) {
         case 'dialer':
           return (
+            <>
+            <p className='text-xs'>LocID -- {locId}</p>
             <DialerView
               phoneNumber={phoneNumber}
               setPhoneNumber={setPhoneNumber}
@@ -206,6 +210,7 @@ export function Dialer({ className }: DialerProps) {
               getContactNameOrNumber={getContactNameOrNumber}
               initiateCall={initiateCall}
             />
+            </>
           );
         case 'contacts':
           return (
