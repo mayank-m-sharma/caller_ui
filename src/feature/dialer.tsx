@@ -108,7 +108,7 @@ export function Dialer({ className }: DialerProps) {
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
-    setLocId(localStorage.getItem('locId') || 'LOC_ID_NOT_FOUND');
+    setLocId(localStorage.getItem('locID') || 'LOC_ID_NOT_FOUND');
     if (currentView === 'incall' && isCallConnected) {
       timer = setInterval(() => {
         setCallDuration((prev) => prev + 1);
