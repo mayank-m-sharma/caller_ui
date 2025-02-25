@@ -61,7 +61,10 @@ export function Dialer({ className }: DialerProps) {
   const [callHistory, setCallHistory] = React.useState<Array<CallHistoryItem>>(
     [],
   );
-
+  const [page, setPage] = React.useState(1);
+  const [totalContacts, setTotalContacts] = React.useState(0);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [isLoading, setIsLoading] = React.useState(false);
 
   const fetchLocation = async () => {
     try {
@@ -76,8 +79,9 @@ export function Dialer({ className }: DialerProps) {
       console.error('Error fetching location:', error);
     }
   };
-  const fetchContacts = async () => {
+  const fetchContacts = async (page = 1, search = '') => {
     try {
+      setIsLoading(true);
       const response = await fetch(`https://services.leadconnectorhq.com/contacts/search`, {
         headers: {
           'Authorization': `Bearer ${ghlAuthToken}`,
@@ -87,13 +91,22 @@ export function Dialer({ className }: DialerProps) {
         method: 'POST',
         body: JSON.stringify({
           "locationId": locationId,
-          "pageLimit": 10
+          "query": search,
+          "page": page,
+          "pageLimit": 20
         })
       });
       const data = await response.json();
+      
+      setTotalContacts(data.total);
+      setHasMore(data.contacts.length > 0);
+      
       return data;
     } catch (error) {
       console.error('Error fetching contacts:', error);
+      return { contacts: [] };
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -192,6 +205,22 @@ export function Dialer({ className }: DialerProps) {
     setIsSpeaker(false);
   };
 
+  const loadMoreContacts = async () => {
+    if (!hasMore || isLoading) return;
+    const nextPage = page + 1;
+    const data = await fetchContacts(nextPage, searchQuery);
+    
+    _setContacts(prev => [
+      ...prev,
+      ...data.contacts.map((contact: any) => ({
+        id: contact.id,
+        name: `${contact.firstName} ${contact.lastName}`,
+        number: contact.phone || "No phone number",
+      }))
+    ]);
+    setPage(nextPage);
+  };
+
   const renderView = () => {
     const viewContent = (() => {
       switch (currentView) {
@@ -217,6 +246,9 @@ export function Dialer({ className }: DialerProps) {
               filteredContacts={filteredContacts}
               setPhoneNumber={setPhoneNumber}
               initiateCall={initiateCall}
+              loadMoreContacts={loadMoreContacts}
+              hasMore={hasMore}
+              isLoading={isLoading}
             />
           );
         case 'incoming':
@@ -435,13 +467,34 @@ function ContactsView({
   filteredContacts,
   setPhoneNumber,
   initiateCall,
+  loadMoreContacts,
+  hasMore,
+  isLoading
 }: {
   searchQuery: string;
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
   filteredContacts: Array<Contact>;
   setPhoneNumber: React.Dispatch<React.SetStateAction<string>>;
   initiateCall: (isIncoming?: boolean, isOutgoing?: boolean) => void;
+  loadMoreContacts: () => void;
+  hasMore: boolean;
+  isLoading: boolean;
 }) {
+  const observer = React.useRef<IntersectionObserver>();
+  const lastContactRef = React.useCallback(
+    (node: HTMLDivElement) => {
+      if (isLoading) return;
+      if (observer.current) observer.current.disconnect();
+      observer.current = new IntersectionObserver(entries => {
+        if (entries[0].isIntersecting && hasMore) {
+          loadMoreContacts();
+        }
+      });
+      if (node) observer.current.observe(node);
+    },
+    [isLoading, hasMore]
+  );
+
   return (
     <div className='flex h-full flex-col'>
       <div className='relative mb-4'>
@@ -449,16 +502,15 @@ function ContactsView({
           type='text'
           placeholder='Search contacts'
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-          }}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className='pr-8'
         />
         <Search className='absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' />
       </div>
       <div className='flex-1 overflow-y-auto'>
-        {filteredContacts.length ? filteredContacts.map((contact) => (
+        {filteredContacts.map((contact, index) => (
           <div
+            ref={index === filteredContacts.length - 1 ? lastContactRef : null}
             key={contact.id}
             className='flex items-center justify-between border-b py-2'
           >
@@ -477,7 +529,17 @@ function ContactsView({
               <Phone className='size-4' />
             </Button>
           </div>
-        )) : <p>Loading contacts....</p>}
+        ))}
+        {isLoading && (
+          <div className="flex justify-center p-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          </div>
+        )}
+        {!hasMore && (
+          <p className="text-center text-muted-foreground p-4">
+            No more contacts to load
+          </p>
+        )}
       </div>
     </div>
   );
