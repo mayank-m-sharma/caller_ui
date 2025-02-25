@@ -40,7 +40,8 @@ interface DialerProps {
   className?: string;
 }
 const AUTH_TOKEN = "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
-const locationId = 'hqD2EpUwBJg1nEBWr4jT';
+let locationId:any = 'hqD2EpUwBJg1nEBWr4jT';
+let ghlAuthToken = "";
 
 export function Dialer({ className }: DialerProps) {
   const [phoneNumber, setPhoneNumber] = React.useState('');
@@ -55,17 +56,12 @@ export function Dialer({ className }: DialerProps) {
   const [isSpeaker, setIsSpeaker] = React.useState(false);
   const [isConnecting, setIsConnecting] = React.useState(false);
   const [isCallConnected, setIsCallConnected] = React.useState(false);
-  const [contacts, _setContacts] = React.useState<Array<Contact>>([
-    { id: '1', name: 'John Doe', number: '(123) 456-7890' },
-    { id: '2', name: 'Jane Smith', number: '(234) 567-8901' },
-    { id: '3', name: 'Alice Johnson', number: '(345) 678-9012' },
-  ]);
+  const [contacts, _setContacts] = React.useState<Array<Contact>>([]);
   const [lastCall, setLastCall] = React.useState<CallHistoryItem | null>(null);
-  const [ghlAuthToken, setGhlAuthToken] = React.useState('');
   const [callHistory, setCallHistory] = React.useState<Array<CallHistoryItem>>(
     [],
   );
-  const [locId, setLocId] = React.useState('');
+
 
   const fetchLocation = async () => {
     try {
@@ -108,22 +104,24 @@ export function Dialer({ className }: DialerProps) {
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
-    setLocId(localStorage.getItem('locID') || 'LOC_ID_NOT_FOUND');
+    locationId = localStorage.getItem('locID') || locationId;
     if (currentView === 'incall' && isCallConnected) {
       timer = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
     fetchLocation().then(data => {
-      setGhlAuthToken(data.ghlAuthToken);
-      fetchContacts().then(data => {
-        const fetchedContacts = data.contacts.map((contact: any) => ({
-          id: contact.id,
-          name: `${contact.firstNameLowerCase} ${contact.lastNameLowerCase}`,
-          number: contact.phone || "No phone number",
-        }));
-        _setContacts(fetchedContacts);
-      });
+      if (data?.ghlAuthToken) {
+        ghlAuthToken = data.ghlAuthToken;
+        fetchContacts().then(data => {
+          const fetchedContacts = data.contacts.map((contact: any) => ({
+            id: contact.id,
+            name: `${contact.firstNameLowerCase} ${contact.lastNameLowerCase}`,
+            number: contact.phone || "No phone number",
+          }));
+          _setContacts(fetchedContacts);
+        });
+      }
     });
     return () => {
       clearInterval(timer);
@@ -200,7 +198,6 @@ export function Dialer({ className }: DialerProps) {
         case 'dialer':
           return (
             <>
-            <p className='text-xs'>LocID -- {locId}</p>
             <DialerView
               phoneNumber={phoneNumber}
               setPhoneNumber={setPhoneNumber}
@@ -460,7 +457,7 @@ function ContactsView({
         <Search className='absolute right-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground' />
       </div>
       <div className='flex-1 overflow-y-auto'>
-        {filteredContacts.map((contact) => (
+        {filteredContacts.length ? filteredContacts.map((contact) => (
           <div
             key={contact.id}
             className='flex items-center justify-between border-b py-2'
@@ -480,7 +477,7 @@ function ContactsView({
               <Phone className='size-4' />
             </Button>
           </div>
-        ))}
+        )) : <p>Loading contacts....</p>}
       </div>
     </div>
   );
