@@ -62,7 +62,7 @@ export function Dialer({ className }: DialerProps) {
     [],
   );
   const [page, setPage] = React.useState(1);
-  const [totalContacts, setTotalContacts] = React.useState(0);
+  // const [totalContacts, setTotalContacts] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(false);
 
@@ -98,7 +98,7 @@ export function Dialer({ className }: DialerProps) {
       });
       const data = await response.json();
       
-      setTotalContacts(data.total);
+      // setTotalContacts(data.total);
       setHasMore(data.contacts.length > 0);
       
       return data;
