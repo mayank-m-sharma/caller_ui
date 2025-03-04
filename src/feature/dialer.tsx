@@ -20,7 +20,8 @@ import { cn } from '~/lib/utils';
 import { Button } from '~/components/ui/button';
 import { Input } from '~/components/ui/input';
 import { Link } from 'react-router-dom';
-
+import { useStopwatch } from 'react-timer-hook';
+import { BandwidthUA } from '@bandwidth/bw-webrtc-sdk';
 interface Contact {
   id: string;
   name: string;
@@ -44,7 +45,7 @@ let locationId:any = 'hqD2EpUwBJg1nEBWr4jT';
 let ghlAuthToken = "";
 
 export function Dialer({ className }: DialerProps) {
-  const [phoneNumber, setPhoneNumber] = React.useState('');
+  const [phoneNumber, setPhoneNumber] = React.useState('+18552785080');
   const [selectedNumber, _setSelectedNumber] = React.useState('(470) 745-2321');
   const [currentView, setCurrentView] = React.useState<DialerView>('dialer');
   const [previousView, setPreviousView] = React.useState<
@@ -65,6 +66,94 @@ export function Dialer({ className }: DialerProps) {
   // const [totalContacts, setTotalContacts] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(false);
+
+  const { start, pause } = 
+    useStopwatch({ autoStart: false });
+  const [webRtcStatus, setWebRtcStatus] = React.useState('Idle');
+  const [phone, setPhone] = React.useState(new BandwidthUA());
+  const [activeCall, setActiveCall] = React.useState<any>(null);
+  const userId = "+14122682000"
+  const authToken = "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0MTAzNDM1MywiaWF0IjoxNzQxMDMwNzUzLCJqdGkiOiJhNndxVmdvSXRZODkwZGpQbldwWEJxWCJ9.D1xQ3_ERQwIJZMa8YrpvOORtuyo6WBHvl9UX0WzdqyBLq24pupajvs9s7hekDiEDPkQGup2QRl59SZ2WDOjVrVkW6LsOOYIQ3vIcLcSav9tbCL7tNjZSHae5KyFPz9qilwS5dKKh5THWUhwsLf6EaAPF1ngi5fa3a4CpR6T4PNEVhhXTztWTH81etVB2da_c9NpFeie64SV_3lFY4Dg5rroMMrRVemDwBiloWipFDYoaaDoT52mv-QqIQ3kD_eBSuY-eCEleokZAbRxZ9qsbNuwx_vsWf2yfElQoZT1i7rad3bMrASVbS-ZGImwUigamr7IPqOMOCQtEDPj2XzrV9A"
+  const sourceNumber = userId;
+
+  // Add ref for audio element
+  const remoteAudioRef = React.useRef<HTMLAudioElement>(null);
+
+  React.useEffect(() => {
+    const serverConfig = {
+      domain: 'gw.webrtc-app.bandwidth.com',
+      addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
+      iceServers: [
+        'stun.l.google.com:19302',
+        'stun1.l.google.com:19302',
+        'stun2.l.google.com:19302',
+      ],
+    };
+
+    const newPhone = new BandwidthUA();
+    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
+    newPhone.setServerConfig(
+      serverConfig.addresses, 
+      serverConfig.domain,
+      serverConfig.iceServers
+    );
+    newPhone.checkAvailableDevices();
+    newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
+    newPhone.setOAuthToken(authToken);
+    newPhone.init();
+    setPhone(newPhone);
+  }, []);
+
+  React.useEffect(() => {
+    phone.setListeners({
+      loginStateChanged: (isLogin:any, cause:any) => {
+        console.log(isLogin)
+        console.log('webRtcStatus', webRtcStatus);
+        switch (cause) {
+          case 'connected':
+            setWebRtcStatus('Connected');
+            break;
+          case 'disconnected':
+            setWebRtcStatus('Disconnected');
+            break;
+          case 'login failed':
+            setWebRtcStatus('Login Failed');
+            break;
+        }
+      },
+      outgoingCallProgress: () => {
+        setWebRtcStatus('Ringing');
+        setIsConnecting(true);
+      },
+      callTerminated: () => {
+        setWebRtcStatus('Idle');
+        setActiveCall(null);
+        setIsCallConnected(false);
+        setIsConnecting(false);
+        pause();
+        endCall('outgoing');
+      },
+      callConfirmed: (call:any) => {
+        setWebRtcStatus('Connected');
+        setIsConnecting(false);
+        setIsCallConnected(true);
+        setActiveCall(call);
+        start();
+      },
+      callShowStreams: (call:any, localStream:any, remoteStream:any) => {
+        console.log('call', call);
+        console.log('localStream', localStream);
+        console.log('phone>>> callShowStreams');
+        // Handle remote audio stream
+        if (remoteAudioRef.current && remoteStream) {
+          remoteAudioRef.current.srcObject = remoteStream;
+          remoteAudioRef.current.play().catch(err => {
+            console.error('Error playing audio:', err);
+          });
+        }
+      }
+    });
+  }, [phone]);
 
   const fetchLocation = async () => {
     try {
@@ -168,26 +257,33 @@ export function Dialer({ className }: DialerProps) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const initiateCall = (isIncoming = false, _isOutgoing = false) => {
-    const newCall: CallHistoryItem = {
-      number: phoneNumber || selectedNumber,
-      timestamp: new Date(),
-      status: isIncoming ? 'incoming' : 'outgoing',
-    };
-    setLastCall(newCall);
-    setCallHistory((prev) => [newCall, ...prev.slice(0, 9)]);
-    setCurrentView('incall');
-    if (isIncoming) {
-      setIsCallConnected(true);
-      setCallDuration(0);
-    } else {
-      setIsConnecting(true);
-      // Mock call connecting behavior for outgoing calls
-      setTimeout(() => {
-        setIsConnecting(false);
-        setIsCallConnected(true);
-        setCallDuration(0);
-      }, 3000); // Simulate 3 seconds of connecting time
+  const initiateCall = async (isIncoming = false, isOutgoing = false) => {
+    console.log('initiateCall', isIncoming, isOutgoing);
+    if (!phone.isInitialized()) {
+      console.error("BandwidthUA not initialized!");
+      return;
+    }
+
+    const number = phoneNumber.replace(/\D/g, '');
+    if (!number || number.length < 7) return;
+
+    const extraHeaders = [`User-to-User:${authToken}`];
+    try {
+      const call = await phone.makeCall(number, extraHeaders);
+      setActiveCall(call);
+      setWebRtcStatus('Calling');
+      setCurrentView('incall');
+      
+      const newCall: CallHistoryItem = {
+        number: phoneNumber,
+        timestamp: new Date(),
+        status: 'outgoing'
+      };
+      setLastCall(newCall);
+      setCallHistory(prev => [newCall, ...prev.slice(0, 9)]);
+    } catch (err) {
+      console.error('Call failed:', err);
+      endCall('missed');
     }
   };
 
@@ -203,6 +299,15 @@ export function Dialer({ className }: DialerProps) {
     setIsCallConnected(false);
     setIsMuted(false);
     setIsSpeaker(false);
+    if (activeCall) {
+      activeCall.terminate();
+      pause();
+      setActiveCall(null);
+      setIsCallConnected(false);
+      setIsConnecting(false);
+      setWebRtcStatus('Idle');
+      setCurrentView('dialer');
+    }
   };
 
   const loadMoreContacts = async () => {
@@ -220,6 +325,21 @@ export function Dialer({ className }: DialerProps) {
     ]);
     setPage(nextPage);
   };
+
+  // const toggleMute = () => {
+  //   if (activeCall) {
+  //     const shouldMute = !isMuted;
+  //     activeCall.muteAudio(shouldMute);
+  //     setIsMuted(shouldMute);
+  //   }
+  // };
+
+  // const toggleSpeaker = () => {
+  //   if (activeCall) {
+  //     // Implementation depends on your audio device handling
+  //     setIsSpeaker(!isSpeaker);
+  //   }
+  // };
 
   const renderView = () => {
     const viewContent = (() => {
@@ -365,6 +485,18 @@ export function Dialer({ className }: DialerProps) {
         </Button>
       )}
       {renderView()}
+      {/* Add audio element */}
+      <audio 
+        ref={remoteAudioRef} 
+        autoPlay 
+        id="remote-audio"
+      />
+      {/* Keep your existing video element */}
+      <video
+        id="remote-video-container"
+        autoPlay
+        style={{ display: 'none' }}
+      />
     </div>
   );
 }
