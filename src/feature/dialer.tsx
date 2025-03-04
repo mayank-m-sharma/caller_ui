@@ -22,6 +22,7 @@ import { Input } from '~/components/ui/input';
 import { Link } from 'react-router-dom';
 import { useStopwatch } from 'react-timer-hook';
 import { BandwidthUA } from '@bandwidth/bw-webrtc-sdk';
+import { fetchBandwidthToken } from '~/api/bandwidth';
 interface Contact {
   id: string;
   name: string;
@@ -40,7 +41,7 @@ interface CallHistoryItem {
 interface DialerProps {
   className?: string;
 }
-const AUTH_TOKEN = "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
+const TEXTGRID_AUTH_TOKEN = "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
 let locationId:any = 'hqD2EpUwBJg1nEBWr4jT';
 let ghlAuthToken = "";
 
@@ -72,36 +73,42 @@ export function Dialer({ className }: DialerProps) {
   const [webRtcStatus, setWebRtcStatus] = React.useState('Idle');
   const [phone, setPhone] = React.useState(new BandwidthUA());
   const [activeCall, setActiveCall] = React.useState<any>(null);
+  const [BW_AUTH_TOKEN, setBW_AUTH_TOKEN] = React.useState('');
   const userId = "+14122682000"
-  const authToken = "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0MTAzNDM1MywiaWF0IjoxNzQxMDMwNzUzLCJqdGkiOiJhNndxVmdvSXRZODkwZGpQbldwWEJxWCJ9.D1xQ3_ERQwIJZMa8YrpvOORtuyo6WBHvl9UX0WzdqyBLq24pupajvs9s7hekDiEDPkQGup2QRl59SZ2WDOjVrVkW6LsOOYIQ3vIcLcSav9tbCL7tNjZSHae5KyFPz9qilwS5dKKh5THWUhwsLf6EaAPF1ngi5fa3a4CpR6T4PNEVhhXTztWTH81etVB2da_c9NpFeie64SV_3lFY4Dg5rroMMrRVemDwBiloWipFDYoaaDoT52mv-QqIQ3kD_eBSuY-eCEleokZAbRxZ9qsbNuwx_vsWf2yfElQoZT1i7rad3bMrASVbS-ZGImwUigamr7IPqOMOCQtEDPj2XzrV9A"
   const sourceNumber = userId;
 
   // Add ref for audio element
   const remoteAudioRef = React.useRef<HTMLAudioElement>(null);
 
   React.useEffect(() => {
-    const serverConfig = {
-      domain: 'gw.webrtc-app.bandwidth.com',
-      addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
-      iceServers: [
-        'stun.l.google.com:19302',
-        'stun1.l.google.com:19302',
-        'stun2.l.google.com:19302',
-      ],
+    const initializePhone = async () => {
+      const serverConfig = {
+        domain: 'gw.webrtc-app.bandwidth.com',
+        addresses: ['wss://gw.webrtc-app.bandwidth.com:10081'],
+        iceServers: [
+          'stun.l.google.com:19302',
+          'stun1.l.google.com:19302',
+          'stun2.l.google.com:19302',
+        ],
+      };
+      const authToken = await fetchBandwidthToken(TEXTGRID_AUTH_TOKEN);
+      setBW_AUTH_TOKEN(authToken);
+      const newPhone = new BandwidthUA();
+      newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
+      newPhone.setServerConfig(
+        serverConfig.addresses, 
+        serverConfig.domain,
+        serverConfig.iceServers
+      );
+      newPhone.checkAvailableDevices();
+      newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
+      newPhone.setOAuthToken(authToken);
+      newPhone.init();
+      setPhone(newPhone);
     };
 
-    const newPhone = new BandwidthUA();
-    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
-    newPhone.setServerConfig(
-      serverConfig.addresses, 
-      serverConfig.domain,
-      serverConfig.iceServers
-    );
-    newPhone.checkAvailableDevices();
-    newPhone.setAccount(`${sourceNumber}`, 'In-App Calling Sample', '');
-    newPhone.setOAuthToken(authToken);
-    newPhone.init();
-    setPhone(newPhone);
+    initializePhone();
+;
   }, []);
 
   React.useEffect(() => {
@@ -159,7 +166,7 @@ export function Dialer({ className }: DialerProps) {
     try {
       const response = await fetch(`https://cors-anywhere.herokuapp.com/https://api.textgrid.com/2010-04-01/ghl/location/${locationId}.json`, {
         headers: {
-          'Authorization': `Bearer ${AUTH_TOKEN}`
+          'Authorization': `Bearer ${TEXTGRID_AUTH_TOKEN}`
         }
       });
       const data = await response.json();
@@ -267,7 +274,7 @@ export function Dialer({ className }: DialerProps) {
     const number = phoneNumber.replace(/\D/g, '');
     if (!number || number.length < 7) return;
 
-    const extraHeaders = [`User-to-User:${authToken}`];
+    const extraHeaders = [`User-to-User:${BW_AUTH_TOKEN}`];
     try {
       const call = await phone.makeCall(number, extraHeaders);
       setActiveCall(call);
