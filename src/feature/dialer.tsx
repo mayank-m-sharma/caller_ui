@@ -46,7 +46,7 @@ let locationId:any = 'hqD2EpUwBJg1nEBWr4jT';
 let ghlAuthToken = "";
 
 export function Dialer({ className }: DialerProps) {
-  const [phoneNumber, setPhoneNumber] = React.useState('+18552785080');
+  const [phoneNumber, setPhoneNumber] = React.useState('+17708208989');
   const [selectedNumber, _setSelectedNumber] = React.useState('(470) 745-2321');
   const [currentView, setCurrentView] = React.useState<DialerView>('dialer');
   const [previousView, setPreviousView] = React.useState<
