@@ -13,22 +13,23 @@ import {
   Volume2,
   VolumeX,
   X,
-} from 'lucide-react';
-import * as React from 'react';
-import { cn } from '~/lib/utils';
+} from "lucide-react";
+import * as React from "react";
+import { cn } from "~/lib/utils";
 
-import { Button } from '~/components/ui/button';
-import { Input } from '~/components/ui/input';
-import { Link } from 'react-router-dom';
-
+import { Button } from "~/components/ui/button";
+import { Input } from "~/components/ui/input";
+import { Link } from "react-router-dom";
+import { useStopwatch } from "react-timer-hook";
+import { BandwidthUA } from "@bandwidth/bw-webrtc-sdk";
 interface Contact {
   id: string;
   name: string;
   number: string;
 }
 
-type DialerView = 'dialer' | 'contacts' | 'incoming' | 'incall' | 'history';
-type CallStatus = 'incoming' | 'outgoing' | 'missed' | 'declined';
+type DialerView = "dialer" | "contacts" | "incoming" | "incall" | "history";
+type CallStatus = "incoming" | "outgoing" | "missed" | "declined";
 
 interface CallHistoryItem {
   number: string;
@@ -39,18 +40,19 @@ interface CallHistoryItem {
 interface DialerProps {
   className?: string;
 }
-const AUTH_TOKEN = "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
-let locationId:any = 'hqD2EpUwBJg1nEBWr4jT';
+const AUTH_TOKEN =
+  "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
+let locationId: any = "hqD2EpUwBJg1nEBWr4jT";
 let ghlAuthToken = "";
 
 export function Dialer({ className }: DialerProps) {
-  const [phoneNumber, setPhoneNumber] = React.useState('');
-  const [selectedNumber, _setSelectedNumber] = React.useState('(470) 745-2321');
-  const [currentView, setCurrentView] = React.useState<DialerView>('dialer');
+  const [phoneNumber, setPhoneNumber] = React.useState("+18552785080");
+  const [selectedNumber, _setSelectedNumber] = React.useState("(470) 745-2321");
+  const [currentView, setCurrentView] = React.useState<DialerView>("dialer");
   const [previousView, setPreviousView] = React.useState<
-    'dialer' | 'contacts' | 'history'
-  >('dialer');
-  const [searchQuery, setSearchQuery] = React.useState('');
+    "dialer" | "contacts" | "history"
+  >("dialer");
+  const [searchQuery, setSearchQuery] = React.useState("");
   const [callDuration, setCallDuration] = React.useState(0);
   const [isMuted, setIsMuted] = React.useState(false);
   const [isSpeaker, setIsSpeaker] = React.useState(false);
@@ -59,56 +61,150 @@ export function Dialer({ className }: DialerProps) {
   const [contacts, _setContacts] = React.useState<Array<Contact>>([]);
   const [lastCall, setLastCall] = React.useState<CallHistoryItem | null>(null);
   const [callHistory, setCallHistory] = React.useState<Array<CallHistoryItem>>(
-    [],
+    []
   );
   const [page, setPage] = React.useState(1);
   // const [totalContacts, setTotalContacts] = React.useState(0);
   const [hasMore, setHasMore] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(false);
 
+  const { start, pause } = useStopwatch({ autoStart: false });
+  const [webRtcStatus, setWebRtcStatus] = React.useState("Idle");
+  const [phone, setPhone] = React.useState(new BandwidthUA());
+  const [activeCall, setActiveCall] = React.useState<any>(null);
+  const userId = "+14122682000";
+  const authToken =
+    "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0MjgzNTI1OCwiaWF0IjoxNzQyODMxNjU4LCJqdGkiOiJhMnY5UndwOFBQd25UR1VUbFV4cXlDMCJ9.YQmg-Dk2Q1FizCDMqA4gDwM0RVrHHdT2ooj2dbiUb3-70J_g-7lkSbvl0a33mUYz3xwHlPP5qimz1dWZYRArzggA6lAc5Hbk5rO4V1D5P3VsiT6L2x7jRnVUafTHqu9Q8B7Kg6xX4buTtU8vy7fz6uKShLBvMPvgAc3-2tdp_gVBCB-gj6itf0N50S12YXyc6P0ZLPe7xMSapi1lqBB3ugZAQay9IhUczpgThUA7hCvZ6_OXihe5xgulthkePaU7xgJB7Jarhkgju4U_oYebvNcm-8_fiqT6CP5kATnHUTGBCSvJ6-_q3M-F1R8Hqja2r14xZ7mykfLIc7sQ4GI7CQ";
+  const sourceNumber = userId;
+
+  // Add ref for audio element
+  const remoteAudioRef = React.useRef<HTMLAudioElement>(null);
+
+  React.useEffect(() => {
+    const serverConfig = {
+      domain: "gw.webrtc-app.bandwidth.com",
+      addresses: ["wss://gw.webrtc-app.bandwidth.com:10081"],
+      iceServers: [
+        "stun.l.google.com:19302",
+        "stun1.l.google.com:19302",
+        "stun2.l.google.com:19302",
+      ],
+    };
+
+    const newPhone = new BandwidthUA();
+    newPhone.setWebSocketKeepAlive(5, false, false, 5, true);
+    newPhone.setServerConfig(
+      serverConfig.addresses,
+      serverConfig.domain,
+      serverConfig.iceServers
+    );
+    newPhone.checkAvailableDevices();
+    newPhone.setAccount(`${sourceNumber}`, "In-App Calling Sample", "");
+    newPhone.setOAuthToken(authToken);
+    newPhone.init();
+    setPhone(newPhone);
+  }, []);
+
+  React.useEffect(() => {
+    phone.setListeners({
+      loginStateChanged: (isLogin: any, cause: any) => {
+        console.log(isLogin);
+        console.log("webRtcStatus", webRtcStatus);
+        switch (cause) {
+          case "connected":
+            setWebRtcStatus("Connected");
+            break;
+          case "disconnected":
+            setWebRtcStatus("Disconnected");
+            break;
+          case "login failed":
+            setWebRtcStatus("Login Failed");
+            break;
+        }
+      },
+      outgoingCallProgress: () => {
+        setWebRtcStatus("Ringing");
+        setIsConnecting(true);
+      },
+      callTerminated: () => {
+        setWebRtcStatus("Idle");
+        setActiveCall(null);
+        setIsCallConnected(false);
+        setIsConnecting(false);
+        pause();
+        endCall("outgoing");
+      },
+      callConfirmed: (call: any) => {
+        setWebRtcStatus("Connected");
+        setIsConnecting(false);
+        setIsCallConnected(true);
+        setActiveCall(call);
+        start();
+      },
+      callShowStreams: (call: any, localStream: any, remoteStream: any) => {
+        console.log("call", call);
+        console.log("localStream", localStream);
+        console.log("phone>>> callShowStreams");
+        // Handle remote audio stream
+        if (remoteAudioRef.current && remoteStream) {
+          remoteAudioRef.current.srcObject = remoteStream;
+          remoteAudioRef.current.play().catch((err) => {
+            console.error("Error playing audio:", err);
+          });
+        }
+      },
+    });
+  }, [phone]);
+
   const fetchLocation = async () => {
     try {
-      const response = await fetch(`https://cors-anywhere.herokuapp.com/https://api.textgrid.com/2010-04-01/ghl/location/${locationId}.json`, {
-        headers: {
-          'Authorization': `Bearer ${AUTH_TOKEN}`
+      const response = await fetch(
+        `https://cors-anywhere.herokuapp.com/https://api.textgrid.com/2010-04-01/ghl/location/${locationId}.json`,
+        {
+          headers: {
+            Authorization: `Bearer ${AUTH_TOKEN}`,
+          },
         }
-      });
+      );
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error fetching location:', error);
+      console.error("Error fetching location:", error);
     }
   };
-  const fetchContacts = async (page = 1, search = '') => {
+  const fetchContacts = async (page = 1, search = "") => {
     try {
       setIsLoading(true);
-      const response = await fetch(`https://services.leadconnectorhq.com/contacts/search`, {
-        headers: {
-          'Authorization': `Bearer ${ghlAuthToken}`,
-          "version": "2021-07-28",
-          'Content-Type': 'application/json',
-        }, 
-        method: 'POST',
-        body: JSON.stringify({
-          "locationId": locationId,
-          "query": search,
-          "page": page,
-          "pageLimit": 20
-        })
-      });
+      const response = await fetch(
+        `https://services.leadconnectorhq.com/contacts/search`,
+        {
+          headers: {
+            Authorization: `Bearer ${ghlAuthToken}`,
+            version: "2021-07-28",
+            "Content-Type": "application/json",
+          },
+          method: "POST",
+          body: JSON.stringify({
+            locationId: locationId,
+            query: search,
+            page: page,
+            pageLimit: 20,
+          }),
+        }
+      );
       const data = await response.json();
-      
+
       // setTotalContacts(data.total);
       setHasMore(data.contacts.length > 0);
-      
+
       return data;
     } catch (error) {
-      console.error('Error fetching contacts:', error);
+      console.error("Error fetching contacts:", error);
       return { contacts: [] };
     } finally {
       setIsLoading(false);
     }
-  }
+  };
 
   const getContactNameOrNumber = (number: string) => {
     const contact = contacts.find((c) => c.number === number);
@@ -117,16 +213,16 @@ export function Dialer({ className }: DialerProps) {
 
   React.useEffect(() => {
     let timer: NodeJS.Timeout;
-    locationId = localStorage.getItem('locID') || locationId;
-    if (currentView === 'incall' && isCallConnected) {
+    locationId = localStorage.getItem("locID") || locationId;
+    if (currentView === "incall" && isCallConnected) {
       timer = setInterval(() => {
         setCallDuration((prev) => prev + 1);
       }, 1000);
     }
-    fetchLocation().then(data => {
+    fetchLocation().then((data) => {
       if (data?.ghlAuthToken) {
         ghlAuthToken = data.ghlAuthToken;
-        fetchContacts().then(data => {
+        fetchContacts().then((data) => {
           const fetchedContacts = data.contacts.map((contact: any) => ({
             id: contact.id,
             name: `${contact.firstNameLowerCase} ${contact.lastNameLowerCase}`,
@@ -153,45 +249,52 @@ export function Dialer({ className }: DialerProps) {
   };
 
   const clearNumber = () => {
-    setPhoneNumber('');
+    setPhoneNumber("");
   };
 
   const filteredContacts = contacts.filter(
     (contact) =>
       contact.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      contact.number.includes(searchQuery),
+      contact.number.includes(searchQuery)
   );
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const initiateCall = (isIncoming = false, _isOutgoing = false) => {
-    const newCall: CallHistoryItem = {
-      number: phoneNumber || selectedNumber,
-      timestamp: new Date(),
-      status: isIncoming ? 'incoming' : 'outgoing',
-    };
-    setLastCall(newCall);
-    setCallHistory((prev) => [newCall, ...prev.slice(0, 9)]);
-    setCurrentView('incall');
-    if (isIncoming) {
-      setIsCallConnected(true);
-      setCallDuration(0);
-    } else {
-      setIsConnecting(true);
-      // Mock call connecting behavior for outgoing calls
-      setTimeout(() => {
-        setIsConnecting(false);
-        setIsCallConnected(true);
-        setCallDuration(0);
-      }, 3000); // Simulate 3 seconds of connecting time
+  const initiateCall = async (isIncoming = false, isOutgoing = false) => {
+    console.log("initiateCall", isIncoming, isOutgoing);
+    if (!phone.isInitialized()) {
+      console.error("BandwidthUA not initialized!");
+      return;
+    }
+
+    const number = phoneNumber.replace(/\D/g, "");
+    if (!number || number.length < 7) return;
+
+    const extraHeaders = [`User-to-User:${authToken}`];
+    try {
+      const call = await phone.makeCall(number, extraHeaders);
+      setActiveCall(call);
+      setWebRtcStatus("Calling");
+      setCurrentView("incall");
+
+      const newCall: CallHistoryItem = {
+        number: phoneNumber,
+        timestamp: new Date(),
+        status: "outgoing",
+      };
+      setLastCall(newCall);
+      setCallHistory((prev) => [newCall, ...prev.slice(0, 9)]);
+    } catch (err) {
+      console.error("Call failed:", err);
+      endCall("missed");
     }
   };
 
-  const endCall = (status: CallStatus = 'outgoing') => {
+  const endCall = (status: CallStatus = "outgoing") => {
     if (lastCall) {
       const updatedCall = { ...lastCall, status };
       setLastCall(updatedCall);
@@ -203,42 +306,66 @@ export function Dialer({ className }: DialerProps) {
     setIsCallConnected(false);
     setIsMuted(false);
     setIsSpeaker(false);
+    if (activeCall) {
+      activeCall.terminate();
+      pause();
+      setActiveCall(null);
+      setIsCallConnected(false);
+      setIsConnecting(false);
+      setWebRtcStatus("Idle");
+      setCurrentView("dialer");
+    }
   };
 
   const loadMoreContacts = async () => {
     if (!hasMore || isLoading) return;
     const nextPage = page + 1;
     const data = await fetchContacts(nextPage, searchQuery);
-    
-    _setContacts(prev => [
+
+    _setContacts((prev) => [
       ...prev,
       ...data.contacts.map((contact: any) => ({
         id: contact.id,
         name: `${contact.firstName} ${contact.lastName}`,
         number: contact.phone || "No phone number",
-      }))
+      })),
     ]);
     setPage(nextPage);
   };
 
+  // const toggleMute = () => {
+  //   if (activeCall) {
+  //     const shouldMute = !isMuted;
+  //     activeCall.muteAudio(shouldMute);
+  //     setIsMuted(shouldMute);
+  //   }
+  // };
+
+  // const toggleSpeaker = () => {
+  //   if (activeCall) {
+  //     // Implementation depends on your audio device handling
+  //     setIsSpeaker(!isSpeaker);
+  //   }
+  // };
+
   const renderView = () => {
     const viewContent = (() => {
       switch (currentView) {
-        case 'dialer':
+        case "dialer":
           return (
             <>
-            <DialerView
-              phoneNumber={phoneNumber}
-              setPhoneNumber={setPhoneNumber}
-              handleKeyPress={handleKeyPress}
-              clearNumber={clearNumber}
-              lastCall={lastCall}
-              getContactNameOrNumber={getContactNameOrNumber}
-              initiateCall={initiateCall}
-            />
+              <DialerView
+                phoneNumber={phoneNumber}
+                setPhoneNumber={setPhoneNumber}
+                handleKeyPress={handleKeyPress}
+                clearNumber={clearNumber}
+                lastCall={lastCall}
+                getContactNameOrNumber={getContactNameOrNumber}
+                initiateCall={initiateCall}
+              />
             </>
           );
-        case 'contacts':
+        case "contacts":
           return (
             <ContactsView
               searchQuery={searchQuery}
@@ -251,7 +378,7 @@ export function Dialer({ className }: DialerProps) {
               isLoading={isLoading}
             />
           );
-        case 'incoming':
+        case "incoming":
           return (
             <IncomingCallView
               phoneNumber={phoneNumber}
@@ -260,7 +387,7 @@ export function Dialer({ className }: DialerProps) {
               initiateCall={initiateCall}
             />
           );
-        case 'incall':
+        case "incall":
           return (
             <InCallView
               isConnecting={isConnecting}
@@ -277,7 +404,7 @@ export function Dialer({ className }: DialerProps) {
               endCall={endCall}
             />
           );
-        case 'history':
+        case "history":
           return (
             <CallHistoryView
               callHistory={callHistory}
@@ -291,19 +418,19 @@ export function Dialer({ className }: DialerProps) {
     return (
       <div className='flex h-full flex-col'>
         <div className='flex-1 overflow-y-auto p-4'>{viewContent}</div>
-        {(currentView === 'dialer' ||
-          currentView === 'contacts' ||
-          currentView === 'history') && (
+        {(currentView === "dialer" ||
+          currentView === "contacts" ||
+          currentView === "history") && (
           <div className='grid h-16 grid-cols-3 border-t'>
             <Button
               variant='ghost'
               className={cn(
-                'flex h-full flex-col items-center justify-center rounded-none border-r',
-                currentView === 'contacts' && 'bg-muted',
+                "flex h-full flex-col items-center justify-center rounded-none border-r",
+                currentView === "contacts" && "bg-muted"
               )}
               onClick={() => {
-                setCurrentView('contacts');
-                setPreviousView('contacts');
+                setCurrentView("contacts");
+                setPreviousView("contacts");
               }}
             >
               <User className='mb-1 size-4' />
@@ -312,12 +439,12 @@ export function Dialer({ className }: DialerProps) {
             <Button
               variant='ghost'
               className={cn(
-                'flex h-full flex-col items-center justify-center rounded-none border-r',
-                currentView === 'dialer' && 'bg-muted',
+                "flex h-full flex-col items-center justify-center rounded-none border-r",
+                currentView === "dialer" && "bg-muted"
               )}
               onClick={() => {
-                setCurrentView('dialer');
-                setPreviousView('dialer');
+                setCurrentView("dialer");
+                setPreviousView("dialer");
               }}
             >
               <Hash className='mb-1 size-4' />
@@ -326,12 +453,12 @@ export function Dialer({ className }: DialerProps) {
             <Button
               variant='ghost'
               className={cn(
-                'flex h-full flex-col items-center justify-center rounded-none',
-                currentView === 'history' && 'bg-muted',
+                "flex h-full flex-col items-center justify-center rounded-none",
+                currentView === "history" && "bg-muted"
               )}
               onClick={() => {
-                setCurrentView('history');
-                setPreviousView('history');
+                setCurrentView("history");
+                setPreviousView("history");
               }}
             >
               <Clock className='mb-1 size-4' />
@@ -346,25 +473,29 @@ export function Dialer({ className }: DialerProps) {
   return (
     <div
       className={cn(
-        'fixed right-[20px] top-[50px] z-[1000] flex h-[480px] w-[300px] flex-col rounded-lg border bg-background shadow-lg',
-        className,
+        "fixed right-[20px] top-[50px] z-[1000] flex h-[480px] w-[300px] flex-col rounded-lg border bg-background shadow-lg",
+        className
       )}
     >
       {/* Temporary button for incoming call view */}
-      {currentView !== 'incoming' && (
+      {currentView !== "incoming" && (
         <Button
           variant='outline'
           size='sm'
           className='absolute left-[-40px] top-4'
           onClick={() => {
-            setPreviousView(currentView === 'contacts' ? 'contacts' : 'dialer');
-            setCurrentView('incoming');
+            setPreviousView(currentView === "contacts" ? "contacts" : "dialer");
+            setCurrentView("incoming");
           }}
         >
           <PhoneIncoming className='size-4' />
         </Button>
       )}
       {renderView()}
+      {/* Add audio element */}
+      <audio ref={remoteAudioRef} autoPlay id='remote-audio' />
+      {/* Keep your existing video element */}
+      <video id='remote-video-container' autoPlay style={{ display: "none" }} />
     </div>
   );
 }
@@ -388,75 +519,77 @@ function DialerView({
 }) {
   return (
     <>
-    <Link to="/about" className='text-blue-500'>Visit About</Link>
-    <div className='flex h-full flex-col justify-between'>
-      <div className='relative mb-4'>
-        <Input
-          type='text'
-          placeholder='Phone Number'
-          value={phoneNumber}
-          onChange={(e) => {
-            setPhoneNumber(e.target.value);
-          }}
-          className='pr-8'
-        />
-        {phoneNumber && (
+      <Link to='/about' className='text-blue-500'>
+        Visit About
+      </Link>
+      <div className='flex h-full flex-col justify-between'>
+        <div className='relative mb-4'>
+          <Input
+            type='text'
+            placeholder='Phone Number'
+            value={phoneNumber}
+            onChange={(e) => {
+              setPhoneNumber(e.target.value);
+            }}
+            className='pr-8'
+          />
+          {phoneNumber && (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='absolute right-2 top-1/2 size-6 -translate-y-1/2 p-0'
+              onClick={clearNumber}
+            >
+              <X className='size-4' />
+            </Button>
+          )}
+        </div>
+        <div className='mb-4 grid grid-cols-3 gap-2'>
+          {[
+            { num: "1" },
+            { num: "2" },
+            { num: "3" },
+            { num: "4" },
+            { num: "5" },
+            { num: "6" },
+            { num: "7" },
+            { num: "8" },
+            { num: "9" },
+            { num: "*" },
+            { num: "0" },
+            { num: "#" },
+          ].map((key) => (
+            <Button
+              key={key.num}
+              variant='ghost'
+              className='flex h-14 items-center justify-center hover:bg-muted'
+              onClick={() => {
+                handleKeyPress(key.num);
+              }}
+            >
+              <span className='text-lg font-medium'>{key.num}</span>
+            </Button>
+          ))}
+        </div>
+        <div className='mb-4 flex items-center justify-between'>
+          <div className='flex flex-col items-start'>
+            <span className='text-xs text-muted-foreground'>Last Call</span>
+            <span className='text-sm'>
+              {lastCall
+                ? getContactNameOrNumber(lastCall.number)
+                : "No recent calls"}
+            </span>
+          </div>
           <Button
-            variant='ghost'
-            size='sm'
-            className='absolute right-2 top-1/2 size-6 -translate-y-1/2 p-0'
-            onClick={clearNumber}
-          >
-            <X className='size-4' />
-          </Button>
-        )}
-      </div>
-      <div className='mb-4 grid grid-cols-3 gap-2'>
-        {[
-          { num: '1' },
-          { num: '2' },
-          { num: '3' },
-          { num: '4' },
-          { num: '5' },
-          { num: '6' },
-          { num: '7' },
-          { num: '8' },
-          { num: '9' },
-          { num: '*' },
-          { num: '0' },
-          { num: '#' },
-        ].map((key) => (
-          <Button
-            key={key.num}
-            variant='ghost'
-            className='flex h-14 items-center justify-center hover:bg-muted'
+            className='w-20 bg-emerald-500 hover:bg-emerald-600'
             onClick={() => {
-              handleKeyPress(key.num);
+              initiateCall(false, true);
             }}
           >
-            <span className='text-lg font-medium'>{key.num}</span>
+            <Phone className='size-4' />
           </Button>
-        ))}
-      </div>
-      <div className='mb-4 flex items-center justify-between'>
-        <div className='flex flex-col items-start'>
-          <span className='text-xs text-muted-foreground'>Last Call</span>
-          <span className='text-sm'>
-            {lastCall
-              ? getContactNameOrNumber(lastCall.number)
-              : 'No recent calls'}
-          </span>
         </div>
-        <Button
-          className='w-20 bg-emerald-500 hover:bg-emerald-600'
-          onClick={() => {
-            initiateCall(false, true);
-          }}
-        >
-          <Phone className='size-4' />
-        </Button>
       </div>
-    </div>
     </>
   );
 }
@@ -469,7 +602,7 @@ function ContactsView({
   initiateCall,
   loadMoreContacts,
   hasMore,
-  isLoading
+  isLoading,
 }: {
   searchQuery: string;
   setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
@@ -485,7 +618,7 @@ function ContactsView({
     (node: HTMLDivElement) => {
       if (isLoading) return;
       if (observer.current) observer.current.disconnect();
-      observer.current = new IntersectionObserver(entries => {
+      observer.current = new IntersectionObserver((entries) => {
         if (entries[0].isIntersecting && hasMore) {
           loadMoreContacts();
         }
@@ -531,12 +664,12 @@ function ContactsView({
           </div>
         ))}
         {isLoading && (
-          <div className="flex justify-center p-4">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+          <div className='flex justify-center p-4'>
+            <div className='animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900'></div>
           </div>
         )}
         {!hasMore && (
-          <p className="text-center text-muted-foreground p-4">
+          <p className='text-center text-muted-foreground p-4'>
             No more contacts to load
           </p>
         )}
@@ -560,13 +693,13 @@ function IncomingCallView({
     <div className='flex h-full flex-col justify-center'>
       <h2 className='mb-4 text-2xl font-bold'>Incoming Call</h2>
       <p className='mb-8 text-xl'>
-        {getContactNameOrNumber(phoneNumber || '(555) 123-4567')}
+        {getContactNameOrNumber(phoneNumber || "(555) 123-4567")}
       </p>
       <div className='flex gap-4'>
         <Button
           variant='destructive'
           onClick={() => {
-            endCall('declined');
+            endCall("declined");
           }}
         >
           Decline
@@ -622,7 +755,7 @@ function InCallView({
   return (
     <div className='flex h-full flex-col justify-center'>
       <h2 className='mb-4 text-2xl font-bold'>
-        {isConnecting ? 'Connecting...' : 'In Call'}
+        {isConnecting ? "Connecting..." : "In Call"}
       </h2>
       <p className='mb-8 text-xl'>
         {getContactNameOrNumber(phoneNumber || selectedNumber)}
@@ -657,10 +790,10 @@ function InCallView({
       <Button
         variant='destructive'
         onClick={() => {
-          endCall('outgoing');
+          endCall("outgoing");
         }}
       >
-        {isConnecting ? 'Cancel' : 'End Call'}
+        {isConnecting ? "Cancel" : "End Call"}
       </Button>
     </div>
   );
@@ -682,13 +815,13 @@ function CallHistoryView({
 
   const getCallIcon = (status: CallStatus) => {
     switch (status) {
-      case 'incoming':
+      case "incoming":
         return <PhoneIncoming className='size-4 text-green-500' />;
-      case 'outgoing':
+      case "outgoing":
         return <PhoneOutgoing className='size-4 text-blue-500' />;
-      case 'missed':
+      case "missed":
         return <PhoneMissed className='size-4 text-red-500' />;
-      case 'declined':
+      case "declined":
         return <PhoneOff className='size-4 text-yellow-500' />;
     }
   };
