@@ -24,58 +24,33 @@ import { Link } from "react-router-dom";
 // Import Bandwidth SDK (assuming you have it available)
 import { BandwidthUA } from "../scripts/bw-webrtc-sdk.js";
 
-interface Contact {
-  id: string;
-  name: string;
-  number: string;
-}
-
-type DialerView = "dialer" | "contacts" | "incoming" | "incall" | "history";
-type CallStatus = "incoming" | "outgoing" | "missed" | "declined";
-
-interface CallHistoryItem {
-  number: string;
-  timestamp: Date;
-  status: CallStatus;
-}
-
-interface DialerProps {
-  className?: string;
-}
 const AUTH_TOKEN =
   "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
 let locationId = "hqD2EpUwBJg1nEBWr4jT";
 let ghlAuthToken = "";
 let bandwidthAuthToken =
-  "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJIdHRwVm9pY2UiLCJ0ZXN0Um9sZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0MzkyMDY5MSwiaWF0IjoxNzQzOTE3MDkxLCJqdGkiOiJhNlRWdHdvSlpFVjRKVkpaQjkweDhNdSJ9.pjRfP2WtohLWVAgY5xo32U7XTnDBB5mYbG7af51YKcidtrMfB4ZMpRIVGViGXYubgkleal-6xOuwbZttHpceba2_wGQpqGhHHGYvHK18Z5r8MXQ5GrqT5BtGVxUotCJ0EpMyoNEZ3APOE2lFoNMa5vL0eLuykveenEGRuMHJ7kYPpfCAZgi8F1D-BILgPj9BtUXQ_yfto-_wELYFnCo_lKGKFX110cFKZzrWHXdu814pkgwlqLZOIkzlO7fJFeI1vZ1JNGebNpqntW80YicIZ9lV-aFTAVPhe4O7CUt-j8iSS0pRctr_xDW89tk-SOExVhpHx17X5JKTeLVeOS2xZQ";
-export function Dialer({ className }: DialerProps) {
+  "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0Mzk2MTU4NCwiaWF0IjoxNzQzOTU3OTg0LCJqdGkiOiJhNkdDa2E5VmN0ZVU2ZTZYU3RKYzc2In0.TTaRHRROZt_iA3FRv4ce2c2WtWs_d-QTVOX2sit8tkbMB3INwCkssdUX_Dui0JW12l_K9H760hgTpXyRpgeLcV338TVvGXMCx35hYr2IHiuiQgbYLvDOdoLZ0OtVA7E-_DQM_0VBMzYfoCZyhs6cPm9S_A2PmH4fxyt4_KtO9FrbcOjxQtcJVOOa77XQUGZ0kYnWuxCdVIjm0OdZ6NBRZjiSqChAh-qsVJlpA3YxVJ4jVjjmKE2OZ54yFQvRraSzZ8TmHX72MUd5rxjJ-BZ3ARPG3yXvvqCcuZh7zu1dwbAH91g1nQp9zpDv18mJVVMzyUT_1GL_rtEcUFPNwQKyNw";
+export function Dialer({ className }) {
   const [phoneNumber, setPhoneNumber] = React.useState("");
   const [selectedNumber, _setSelectedNumber] = React.useState("");
-  const [currentView, setCurrentView] = React.useState<DialerView>("dialer");
-  const [previousView, setPreviousView] = React.useState<
-    "dialer" | "contacts" | "history"
-  >("dialer");
+  const [currentView, setCurrentView] = React.useState("dialer");
+  const [previousView, setPreviousView] = React.useState("dialer");
   const [searchQuery, setSearchQuery] = React.useState("");
   const [callDuration, setCallDuration] = React.useState(0);
   const [isMuted, setIsMuted] = React.useState(false);
   const [isSpeaker, setIsSpeaker] = React.useState(false);
   const [isConnecting, setIsConnecting] = React.useState(false);
   const [isCallConnected, setIsCallConnected] = React.useState(false);
-  const [contacts, _setContacts] = React.useState<Array<Contact>>([]);
-  const [lastCall, setLastCall] = React.useState<CallHistoryItem | null>(null);
-  const [callHistory, setCallHistory] = React.useState<Array<CallHistoryItem>>(
-    []
-  );
+  const [contacts, _setContacts] = React.useState([]);
+  const [lastCall, setLastCall] = React.useState(null);
+  const [callHistory, setCallHistory] = React.useState([]);
   const [page, setPage] = React.useState(1);
   const [hasMore, setHasMore] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(false);
 
   // Add Bandwidth SDK state
-  const [bandwidthClient, setBandwidthClient] =
-    React.useState<BandwidthUA | null>(null);
-  const [callSession, setCallSession] = React.useState<{
-    terminate: () => void;
-  } | null>(null);
+  const [bandwidthClient, setBandwidthClient] = React.useState(null);
+  const [callSession, setCallSession] = React.useState(null);
   const [bandwidthNumber, setBandwidthNumber] = React.useState("+18452019469"); // Default Bandwidth number
 
   const initBandwidthClient = React.useCallback(() => {
@@ -103,7 +78,7 @@ export function Dialer({ className }: DialerProps) {
       bandwidthUA.setOAuthToken(bandwidthAuthToken);
 
       bandwidthUA.setListeners({
-        loginStateChanged: function (isLogin: any, cause: any) {
+        loginStateChanged: function (isLogin, cause) {
           console.log("Client state changed. Cause: " + cause);
           switch (cause) {
             case "connected":
@@ -125,34 +100,30 @@ export function Dialer({ className }: DialerProps) {
               break;
           }
         },
-        outgoingCallProgress: function (call: any, response: any) {
+        outgoingCallProgress: function (call, response) {
           console.log("client>>> outgoing call progress");
           setIsConnecting(true);
         },
-        callTerminated: function (call: any, message: any, cause: any) {
+        callTerminated: function (call, message, cause) {
           console.log("client>>> call terminated callback");
           setIsConnecting(false);
           setIsCallConnected(false);
           setCallSession(null);
           endCall("outgoing");
         },
-        callConfirmed: function (call: any, message: any, cause: any) {
+        callConfirmed: function (call, message, cause) {
           console.log("client>>> callConfirmed");
           setIsConnecting(false);
           setIsCallConnected(true);
           setCallDuration(0);
         },
-        callShowStreams: function (
-          call: any,
-          localStream: any,
-          remoteStream: any
-        ) {
+        callShowStreams: function (call, localStream, remoteStream) {
           console.log("client>>> callShowStreams");
           const audio = new Audio();
           audio.srcObject = remoteStream;
           audio.play();
         },
-        incomingCall: function (call: any, invite: any) {
+        incomingCall: function (call, invite) {
           console.log("client>>> incomingCall");
           if (
             currentView === "dialer" ||
@@ -187,7 +158,7 @@ export function Dialer({ className }: DialerProps) {
           }
           setCurrentView("incoming");
         },
-        callHoldStateChanged: function (call: any, isHold: any, isRemote: any) {
+        callHoldStateChanged: function (call, isHold, isRemote) {
           console.log("client>>> callHoldStateChanged");
         },
       });
@@ -246,13 +217,13 @@ export function Dialer({ className }: DialerProps) {
     }
   };
 
-  const getContactNameOrNumber = (number: string) => {
+  const getContactNameOrNumber = (number) => {
     const contact = contacts.find((c) => c.number === number);
     return contact ? contact.name : number;
   };
 
   React.useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer;
     locationId = localStorage.getItem("locID") || locationId;
 
     // Timer for call duration
@@ -271,7 +242,7 @@ export function Dialer({ className }: DialerProps) {
         initBandwidthClient();
 
         fetchContacts().then((data) => {
-          const fetchedContacts = data.contacts.map((contact: any) => ({
+          const fetchedContacts = data.contacts.map((contact) => ({
             id: contact.id,
             name: `${contact.firstNameLowerCase} ${contact.lastNameLowerCase}`,
             number: contact.phone || "No phone number",
@@ -286,7 +257,7 @@ export function Dialer({ className }: DialerProps) {
     };
   }, [currentView, isCallConnected, initBandwidthClient]);
 
-  const handleKeyPress = (key: string) => {
+  const handleKeyPress = (key) => {
     if (phoneNumber.length < 14) {
       setPhoneNumber((prev) => {
         const newNumber = prev + key;
@@ -307,14 +278,14 @@ export function Dialer({ className }: DialerProps) {
       contact.number.includes(searchQuery)
   );
 
-  const formatTime = (seconds: number) => {
+  const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Bandwidth call functions
-  const makeBandwidthCall = (number: string, destinationNumber = "") => {
+  const makeBandwidthCall = (number, destinationNumber = "") => {
     if (!bandwidthClient) {
       console.error("Bandwidth client not initialized");
       return;
@@ -323,11 +294,11 @@ export function Dialer({ className }: DialerProps) {
     extraHeaders = [`User-to-User:${destinationNumber};encoding=text`];
     bandwidthClient
       .makeCall(number, extraHeaders)
-      .then((value: any) => {
+      .then((value) => {
         setCallSession(value);
         console.log("Call created", value);
       })
-      .catch((error: any) => {
+      .catch((error) => {
         console.error("Call failed", error);
       });
   };
@@ -340,7 +311,7 @@ export function Dialer({ className }: DialerProps) {
 
   const initiateCall = (isIncoming = false, isOutgoing = false) => {
     const number = phoneNumber || selectedNumber;
-    const newCall: CallHistoryItem = {
+    const newCall = {
       number: number,
       timestamp: new Date(),
       status: isIncoming ? "incoming" : "outgoing",
@@ -359,7 +330,7 @@ export function Dialer({ className }: DialerProps) {
     }
   };
 
-  const endCall = (status: CallStatus = "outgoing") => {
+  const endCall = (status = "outgoing") => {
     // Terminate the Bandwidth call if active
     if (callSession) {
       terminateCall();
@@ -389,7 +360,7 @@ export function Dialer({ className }: DialerProps) {
 
     _setContacts((prev) => [
       ...prev,
-      ...data.contacts.map((contact: any) => ({
+      ...data.contacts.map((contact) => ({
         id: contact.id,
         name: `${contact.firstName} ${contact.lastName}`,
         number: contact.phone || "No phone number",
@@ -558,16 +529,6 @@ function DialerView({
   initiateCall,
   bandwidthNumber,
   setBandwidthNumber,
-}: {
-  phoneNumber: string;
-  setPhoneNumber: React.Dispatch<React.SetStateAction<string>>;
-  handleKeyPress: (key: string) => void;
-  clearNumber: () => void;
-  lastCall: CallHistoryItem | null;
-  getContactNameOrNumber: (number: string) => string;
-  initiateCall: (isIncoming?: boolean, isOutgoing?: boolean) => void;
-  bandwidthNumber: string;
-  setBandwidthNumber: React.Dispatch<React.SetStateAction<string>>;
 }) {
   return (
     <>
@@ -669,19 +630,10 @@ function ContactsView({
   loadMoreContacts,
   hasMore,
   isLoading,
-}: {
-  searchQuery: string;
-  setSearchQuery: React.Dispatch<React.SetStateAction<string>>;
-  filteredContacts: Array<Contact>;
-  setPhoneNumber: React.Dispatch<React.SetStateAction<string>>;
-  initiateCall: (isIncoming?: boolean, isOutgoing?: boolean) => void;
-  loadMoreContacts: () => void;
-  hasMore: boolean;
-  isLoading: boolean;
 }) {
-  const observer = React.useRef<IntersectionObserver>();
+  const observer = React.useRef();
   const lastContactRef = React.useCallback(
-    (node: HTMLDivElement) => {
+    (node) => {
       if (isLoading) return;
       if (observer.current) observer.current.disconnect();
       observer.current = new IntersectionObserver((entries) => {
@@ -749,11 +701,6 @@ function IncomingCallView({
   getContactNameOrNumber,
   endCall,
   initiateCall,
-}: {
-  phoneNumber: string;
-  getContactNameOrNumber: (number: string) => string;
-  endCall: (status: CallStatus) => void;
-  initiateCall: (isIncoming?: boolean, isOutgoing?: boolean) => void;
 }) {
   return (
     <div className='flex h-full flex-col justify-center'>
@@ -804,19 +751,6 @@ function InCallView({
   isSpeaker,
   setIsSpeaker,
   endCall,
-}: {
-  isConnecting: boolean;
-  isCallConnected: boolean;
-  phoneNumber: string;
-  selectedNumber: string;
-  getContactNameOrNumber: (number: string) => string;
-  callDuration: number;
-  formatTime: (seconds: number) => string;
-  isMuted: boolean;
-  setIsMuted: React.Dispatch<React.SetStateAction<boolean>>;
-  isSpeaker: boolean;
-  setIsSpeaker: React.Dispatch<React.SetStateAction<boolean>>;
-  endCall: (status: CallStatus) => void;
 }) {
   return (
     <div className='flex h-full flex-col justify-center'>
@@ -865,21 +799,13 @@ function InCallView({
   );
 }
 
-function CallHistoryView({
-  callHistory,
-  contacts,
-  initiateCall,
-}: {
-  callHistory: Array<CallHistoryItem>;
-  contacts: Array<Contact>;
-  initiateCall: (isIncoming?: boolean, isOutgoing?: boolean) => void;
-}) {
-  const getContactNameOrNumber = (number: string) => {
+function CallHistoryView({ callHistory, contacts, initiateCall }) {
+  const getContactNameOrNumber = (number) => {
     const contact = contacts.find((c) => c.number === number);
     return contact ? contact.name : number;
   };
 
-  const getCallIcon = (status: CallStatus) => {
+  const getCallIcon = (status) => {
     switch (status) {
       case "incoming":
         return <PhoneIncoming className='size-4 text-green-500' />;
