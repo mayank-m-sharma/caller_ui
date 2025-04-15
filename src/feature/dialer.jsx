@@ -23,13 +23,14 @@ import { Link } from "react-router-dom";
 
 // Import Bandwidth SDK (assuming you have it available)
 import { BandwidthUA } from "../scripts/bw-webrtc-sdk.js";
+import { connectSocket, registerLocation } from "../socket-util.js";
 
 const AUTH_TOKEN =
   "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
 let locationId = "hqD2EpUwBJg1nEBWr4jT";
 let ghlAuthToken = "";
 let bandwidthAuthToken =
-  "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0Mzk2MTU4NCwiaWF0IjoxNzQzOTU3OTg0LCJqdGkiOiJhNkdDa2E5VmN0ZVU2ZTZYU3RKYzc2In0.TTaRHRROZt_iA3FRv4ce2c2WtWs_d-QTVOX2sit8tkbMB3INwCkssdUX_Dui0JW12l_K9H760hgTpXyRpgeLcV338TVvGXMCx35hYr2IHiuiQgbYLvDOdoLZ0OtVA7E-_DQM_0VBMzYfoCZyhs6cPm9S_A2PmH4fxyt4_KtO9FrbcOjxQtcJVOOa77XQUGZ0kYnWuxCdVIjm0OdZ6NBRZjiSqChAh-qsVJlpA3YxVJ4jVjjmKE2OZ54yFQvRraSzZ8TmHX72MUd5rxjJ-BZ3ARPG3yXvvqCcuZh7zu1dwbAH91g1nQp9zpDv18mJVVMzyUT_1GL_rtEcUFPNwQKyNw";
+  "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0NDEzODI2NywiaWF0IjoxNzQ0MTM0NjY3LCJqdGkiOiJhNzN5NEhDNGJzTUx3djJSYms4cUxZbyJ9.meCNF4STh4DKS5KBBPI-7dtkseYLGtgpA0xbIFy7_HEsOrJkOdSbS8KbFMITNMPxV2c8Cnzmo1BBPCWOlQZqt_vQvpScvTVWxnWuQ6VLQJBdKZY8hQVystT8beUUlYIYy8HRNJ-VsKIpvKrsnOn5shsvkcJtI0DpfXMIViLZ6Ep7WigtE213NXlXiEM4Gj8z_-fKwHK4X3ZZmItvf9k_1G8LBPFiLmJiewgscnRH-1dh2eTVzvJcdUAlNH1YOWKrvOvogDw_Vp1gFOnit2BYipLTMyRonWftoCD00Tshdsskn_ywzgMYMnyZvpRqYXTipTJyhuRZSNAQfcl3YfCi-A";
 export function Dialer({ className }) {
   const [phoneNumber, setPhoneNumber] = React.useState("");
   const [selectedNumber, _setSelectedNumber] = React.useState("");
@@ -225,7 +226,27 @@ export function Dialer({ className }) {
   React.useEffect(() => {
     let timer;
     locationId = localStorage.getItem("locID") || locationId;
+    const socket = connectSocket();
+    socket.on("connect", () => {
+      console.log("✅ Socket connected. Sending register-location...");
+      registerLocation(locationId);
+    });
+    socket.on("inbound-call-received", ({ locationId, metadata }) => {
+      console.log("📞 Incoming call received:", metadata);
+      if (metadata.from) {
+        setPhoneNumber(metadata.from);
+      }
+      setPreviousView(currentView);
+      setCurrentView("incoming");
 
+      // Optional: Play ringtone
+      // const audio = new Audio("/path/to/ringtone.mp3"); // Add your ringtone file
+      // audio.loop = true;
+      // audio.play();
+
+      // Store audio reference to stop it when call is answered/declined
+      setRingtone(audio);
+    });
     // Timer for call duration
     if (currentView === "incall" && isCallConnected) {
       timer = setInterval(() => {
@@ -253,6 +274,7 @@ export function Dialer({ className }) {
     });
 
     return () => {
+      socket.disconnect();
       clearInterval(timer);
     };
   }, [currentView, isCallConnected, initBandwidthClient]);
