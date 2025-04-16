@@ -15,7 +15,7 @@ export function connectSocket() {
   }
 
   // Create a new socket connection
-  socket = io("http://localhost:3000", {
+  socket = io("https://ghlsdk.textgrid.com", {
     transports: ["websocket"], // ⬅ Force only websocket
   });
 
