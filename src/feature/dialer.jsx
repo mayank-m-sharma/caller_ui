@@ -1,3 +1,4 @@
+import React, { useState, useEffect } from "react";
 import {
   Clock,
   Hash,
@@ -14,48 +15,69 @@ import {
   VolumeX,
   X,
 } from "lucide-react";
-import * as React from "react";
 import { cn } from "~/lib/utils";
-
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Link } from "react-router-dom";
-
-// Import Bandwidth SDK (assuming you have it available)
 import { BandwidthUA } from "../scripts/bw-webrtc-sdk.js";
 import { connectSocket, registerLocation } from "../socket-util.js";
 
-const AUTH_TOKEN =
-  "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
-let locationId = "hqD2EpUwBJg1nEBWr4jT";
-let ghlAuthToken = "";
-let bandwidthAuthToken =
-  "eyJraWQiOiJzZ25tLTE3OWU3Y2NkLTM0MzQtNGY5Yi05MjhlLWNkN2Y1ODEyNjNkNyIsImFsZyI6IlJTMjU2In0.eyJzdWIiOiJzZGtAdGV4dGdyaWQiLCJhdWQiOiJiYW5kd2lkdGguY29tIiwic2NwIjpbXSwiYWNjZXNzX3R5cGUiOiJBUEkiLCJyb2xlcyI6WyJ0ZXN0Um9sZSIsIkh0dHBWb2ljZSJdLCJpc3MiOiJodHRwczovL2lkLmJhbmR3aWR0aC5jb20vYXBpL3YxIiwiYWNjdF9zY29wZSI6IkFjY291bnQiLCJhY2NvdW50cyI6WyI1MDA4NDM3Il0sImV4cCI6MTc0NDEzODI2NywiaWF0IjoxNzQ0MTM0NjY3LCJqdGkiOiJhNzN5NEhDNGJzTUx3djJSYms4cUxZbyJ9.meCNF4STh4DKS5KBBPI-7dtkseYLGtgpA0xbIFy7_HEsOrJkOdSbS8KbFMITNMPxV2c8Cnzmo1BBPCWOlQZqt_vQvpScvTVWxnWuQ6VLQJBdKZY8hQVystT8beUUlYIYy8HRNJ-VsKIpvKrsnOn5shsvkcJtI0DpfXMIViLZ6Ep7WigtE213NXlXiEM4Gj8z_-fKwHK4X3ZZmItvf9k_1G8LBPFiLmJiewgscnRH-1dh2eTVzvJcdUAlNH1YOWKrvOvogDw_Vp1gFOnit2BYipLTMyRonWftoCD00Tshdsskn_ywzgMYMnyZvpRqYXTipTJyhuRZSNAQfcl3YfCi-A";
+let bandwidthAuthToken = ""; 
+
 export function Dialer({ className }) {
-  const [phoneNumber, setPhoneNumber] = React.useState("");
-  const [selectedNumber, _setSelectedNumber] = React.useState("");
-  const [currentView, setCurrentView] = React.useState("dialer");
-  const [previousView, setPreviousView] = React.useState("dialer");
-  const [searchQuery, setSearchQuery] = React.useState("");
-  const [callDuration, setCallDuration] = React.useState(0);
-  const [isMuted, setIsMuted] = React.useState(false);
-  const [isSpeaker, setIsSpeaker] = React.useState(false);
-  const [isConnecting, setIsConnecting] = React.useState(false);
-  const [isCallConnected, setIsCallConnected] = React.useState(false);
-  const [contacts, _setContacts] = React.useState([]);
-  const [lastCall, setLastCall] = React.useState(null);
-  const [callHistory, setCallHistory] = React.useState([]);
-  const [page, setPage] = React.useState(1);
-  const [hasMore, setHasMore] = React.useState(true);
-  const [isLoading, setIsLoading] = React.useState(false);
-  const [inboundToNumber, setInboundToNumber] = React.useState("");
-  const [inboundUid, setInboundUId] = React.useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [currentView, setCurrentView] = useState("dialer");
+  const [bandwidthClient, setBandwidthClient] = useState(null);
+  const [selectedNumber, _setSelectedNumber] = useState("");
+  const [previousView, setPreviousView] = useState("dialer");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeaker, setIsSpeaker] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isCallConnected, setIsCallConnected] = useState(false);
+  const [contacts, _setContacts] = useState([]);
+  const [lastCall, setLastCall] = useState(null);
+  const [callHistory, setCallHistory] = useState([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [inboundToNumber, setInboundToNumber] = useState("");
+  const [inboundUid, setInboundUId] = useState("");
+  const [callSession, setCallSession] = useState(null);
+  const [bandwidthNumber, setBandwidthNumber] = useState("+18452019469");
 
-  // Add Bandwidth SDK state
-  const [bandwidthClient, setBandwidthClient] = React.useState(null);
-  const [callSession, setCallSession] = React.useState(null);
-  const [bandwidthNumber, setBandwidthNumber] = React.useState("+18452019469"); // Default Bandwidth number
+  const AUTH_TOKEN =
+    "VnZiU0l2Y3RyS2dITHVCVmdkZ3lNQT09OkEyMUMwNUFGM0JGMjQwREQ5OTU0QUQyMTVENzIyOEQ3";
+  let locationId = "hqD2EpUwBJg1nEBWr4jT";
+  let ghlAuthToken = "";
 
+  const fetchBandwidthAuthToken = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(
+        "https://cors-anywhere.herokuapp.com/https://api.textgrid.com/2010-04-01/ghl/getsdksid.json",
+        {
+          headers: {
+            Authorization: `Bearer ${AUTH_TOKEN}`,
+          },
+        }
+      );
+      const data = await response.json();
+      if (data.access_token) {
+        bandwidthAuthToken = data.access_token; 
+        console.log("Token fetched:", bandwidthAuthToken);
+      } else {
+        console.error("Failed to fetch token");
+      }
+    } catch (error) {
+      console.error("Error fetching token:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize Bandwidth client
   const initBandwidthClient = React.useCallback(() => {
     if (BandwidthUA && bandwidthAuthToken) {
       const bandwidthUA = new BandwidthUA();
@@ -172,6 +194,20 @@ export function Dialer({ className }) {
     return null;
   }, [bandwidthNumber, ghlAuthToken, currentView]);
 
+  useEffect(() => {
+    const initializeApp = async () => {
+      await fetchBandwidthAuthToken();
+      initBandwidthClient(); 
+      const tokenRefreshInterval = setInterval(async () => {
+        await fetchBandwidthAuthToken();
+      }, 60 * 60 * 1000);
+
+      return () => clearInterval(tokenRefreshInterval); 
+    };
+
+    initializeApp();
+  }, []);
+
   const fetchLocation = async () => {
     try {
       const response = await fetch(
@@ -191,7 +227,6 @@ export function Dialer({ className }) {
 
   const fetchContacts = async (page = 1, search = "") => {
     try {
-      setIsLoading(true);
       const response = await fetch(
         `https://services.leadconnectorhq.com/contacts/search`,
         {
@@ -225,7 +260,7 @@ export function Dialer({ className }) {
     return contact ? contact.name : number;
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     let timer;
     locationId = localStorage.getItem("locID") || locationId;
     const socket = connectSocket();
@@ -519,6 +554,17 @@ export function Dialer({ className }) {
       </div>
     );
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mb-4"></div>
+          <p className="text-lg font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
