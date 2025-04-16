@@ -48,6 +48,8 @@ export function Dialer({ className }) {
   const [page, setPage] = React.useState(1);
   const [hasMore, setHasMore] = React.useState(true);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [inboundToNumber, setInboundToNumber] = React.useState("");
+  const [inboundUid, setInboundUId] = React.useState("");
 
   // Add Bandwidth SDK state
   const [bandwidthClient, setBandwidthClient] = React.useState(null);
@@ -235,6 +237,8 @@ export function Dialer({ className }) {
       console.log("📞 Incoming call received:", metadata);
       if (metadata.from) {
         setPhoneNumber(metadata.from);
+        setInboundToNumber(metadata.to);
+        setInboundUId(metadata.callId);
       }
       setPreviousView(currentView);
       setCurrentView("incoming");
@@ -346,6 +350,7 @@ export function Dialer({ className }) {
     if (isIncoming) {
       setIsCallConnected(true);
       setCallDuration(0);
+      makeBandwidthCall(inboundToNumber, inboundUid);
     } else if (isOutgoing) {
       setIsConnecting(true);
       makeBandwidthCall("18452019469", number.replace(/^[\+\s]+|[^0-9]/g, ""));
@@ -750,7 +755,7 @@ function IncomingCallView({
           variant='default'
           className='bg-green-500 hover:bg-green-600'
           onClick={() => {
-            initiateCall(true);
+            initiateCall(true, false);
           }}
         >
           Accept
