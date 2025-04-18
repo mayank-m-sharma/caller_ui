@@ -18,8 +18,6 @@ import {
 import { cn } from "~/lib/utils";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { Link } from "react-router-dom";
-import { BandwidthUA } from "../scripts/bw-webrtc-sdk.js";
 import { connectSocket, registerLocation } from "../socket-util.js";
 
 let bandwidthAuthToken = ""; 
@@ -66,7 +64,6 @@ export function Dialer({ className }) {
       const data = await response.json();
       if (data.access_token) {
         bandwidthAuthToken = data.access_token; 
-        console.log("Token fetched:", bandwidthAuthToken);
       } else {
         console.error("Failed to fetch token");
       }
@@ -77,11 +74,16 @@ export function Dialer({ className }) {
     }
   };
 
-  // Initialize Bandwidth client
-  const initBandwidthClient = React.useCallback(() => {
-    if (BandwidthUA && bandwidthAuthToken) {
-      const bandwidthUA = new BandwidthUA();
+  
 
+  // Initialize Bandwidth client
+  const initBandwidthClient = React.useCallback(async () => {
+    if (bandwidthAuthToken) {
+      const module = await import(/* @vite-ignore */ `http://localhost:3000/js/bw-webrtc-sdk.js`);
+      const BandwidthUA = module.BandwidthUA;
+  
+      const bandwidthUA = new BandwidthUA();
+  
       const serverConfig = {
         domain: "gw.webrtc-app.bandwidth.com",
         addresses: ["wss://gw.webrtc-app.bandwidth.com:10081"],
@@ -91,17 +93,17 @@ export function Dialer({ className }) {
           // "stun2.l.google.com:19302",
         ],
       };
-
+  
       bandwidthUA.setServerConfig(
         serverConfig.addresses,
         serverConfig.domain,
         serverConfig.iceServers
       );
-
+  
       bandwidthUA.checkAvailableDevices();
       bandwidthUA.setAccount(bandwidthNumber, "In-App Calling Sample", "");
       bandwidthUA.setOAuthToken(bandwidthAuthToken);
-
+  
       bandwidthUA.setListeners({
         loginStateChanged: function (isLogin, cause) {
           console.log("Client state changed. Cause: " + cause);
@@ -155,31 +157,7 @@ export function Dialer({ className }) {
             currentView === "contacts" ||
             currentView === "history"
           ) {
-            if (
-              currentView === "dialer" ||
-              currentView === "contacts" ||
-              currentView === "history"
-            ) {
-              if (
-                currentView === "dialer" ||
-                currentView === "contacts" ||
-                currentView === "history"
-              ) {
-                if (
-                  currentView === "dialer" ||
-                  currentView === "contacts" ||
-                  currentView === "history"
-                ) {
-                  if (
-                    currentView === "dialer" ||
-                    currentView === "contacts" ||
-                    currentView === "history"
-                  ) {
-                    setPreviousView(currentView);
-                  }
-                }
-              }
-            }
+            setPreviousView(currentView);
           }
           setCurrentView("incoming");
         },
@@ -187,12 +165,13 @@ export function Dialer({ className }) {
           console.log("client>>> callHoldStateChanged");
         },
       });
-
+  
       setBandwidthClient(bandwidthUA);
       return bandwidthUA;
     }
     return null;
-  }, [bandwidthNumber, ghlAuthToken, currentView]);
+  }, [bandwidthAuthToken, bandwidthNumber, currentView]);
+  
 
   useEffect(() => {
     const initializeApp = async () => {
@@ -298,9 +277,6 @@ export function Dialer({ className }) {
       if (data?.ghlAuthToken) {
         ghlAuthToken = data.ghlAuthToken;
 
-        // Initialize Bandwidth client after getting auth token
-        initBandwidthClient();
-
         fetchContacts().then((data) => {
           const fetchedContacts = data.contacts.map((contact) => ({
             id: contact.id,
@@ -316,7 +292,7 @@ export function Dialer({ className }) {
       socket.disconnect();
       clearInterval(timer);
     };
-  }, [currentView, isCallConnected, initBandwidthClient]);
+  }, [currentView, isCallConnected]);
 
   const handleKeyPress = (key) => {
     if (phoneNumber.length < 14) {
@@ -605,9 +581,6 @@ function DialerView({
 }) {
   return (
     <>
-      <Link to='/about' className='text-blue-500'>
-        Visit About
-      </Link>
       <div className='flex h-full flex-col justify-between'>
         <div className='relative mb-4'>
           <Input
@@ -618,8 +591,8 @@ function DialerView({
               setPhoneNumber(e.target.value);
             }}
             className='pr-8'
-          />
-          {phoneNumber && (
+            />
+            {phoneNumber && (
             <Button
               variant='ghost'
               size='sm'
@@ -628,24 +601,22 @@ function DialerView({
             >
               <X className='size-4' />
             </Button>
-          )}
-        </div>
-        <div className='mb-2'>
-          <Input
-            type='text'
-            placeholder='Bandwidth Number'
-            value={bandwidthNumber}
-            onChange={(e) => {
-              setBandwidthNumber(e.target.value);
-            }}
-            className='text-xs'
-          />
-          <div className='text-xs text-muted-foreground mt-1'>
-            This is the number used to make calls from
+            )}
           </div>
-        </div>
-        <div className='mb-4 grid grid-cols-3 gap-2'>
-          {[
+          <div className='mb-2'>
+            <select
+            value={bandwidthNumber}
+            className='w-full text-xs border rounded p-2'
+            disabled
+            >
+            <option value={bandwidthNumber}>{bandwidthNumber}</option>
+            </select>
+            <div className='text-xs text-muted-foreground mt-1'>
+            This is the number used to make calls from
+            </div>
+          </div>
+          <div className='mb-4 grid grid-cols-3 gap-2'>
+            {[
             { num: "1" },
             { num: "2" },
             { num: "3" },
@@ -658,7 +629,7 @@ function DialerView({
             { num: "*" },
             { num: "0" },
             { num: "#" },
-          ].map((key) => (
+            ].map((key) => (
             <Button
               key={key.num}
               variant='ghost'

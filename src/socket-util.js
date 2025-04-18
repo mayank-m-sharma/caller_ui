@@ -46,7 +46,4 @@ export function registerLocation(locationId) {
 
   // Emit the event with the provided locationId
   socket.emit("register-location", { locationId });
-  console.log(
-    `Emitted 'register-location' event with locationId: ${locationId}`
-  );
 }
